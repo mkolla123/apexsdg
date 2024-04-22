@@ -1,6 +1,0 @@
-calendar
-datetime
-streamlit
-streamlit_option_menu
-mysql.connector
-pandas
