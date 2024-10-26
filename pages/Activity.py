@@ -10,27 +10,32 @@ import mysql.connector
 #from sqlalchemy.ext.declarative import declarative_base
 
 db_config = {
-    'host': 'srv1118.hstgr.io',
-    'user': 'u829120591_bV3z1',
-    'password': 'u829120591_bV3z1U',
-    'database': 'u829120591_4XuUf',
+    'host': '127.0.0.1',
+    'user': 'test1',
+    'password': 'test1',
+    'database': 'apexsdg',
 }
 
 conn = mysql.connector.connect(**db_config)
 mycursor = conn.cursor(dictionary=True)
 		
-page_title = "Activity reports entry for ECO SDG ACTIVITIES"
+page_title = "Activity reports for SDG ACTIVITIES"
 page_icon = ":money_with_wings:"
 layout = "centered"
 
 st.set_page_config(page_title = page_title, page_icon = page_icon, layout = layout)
 st.title(page_title + " ") 
 
-college_id = st.session_state.college_id
-st.write(f"college id - {college_id}")
-st.session_state
+college_id = 0
+
+#st.write(f"college id - {college_id}")
+#below prints the data present in the current session, useful for debug.
+#st.session_state
 
 aclist = []
+selected_aclist = []
+sel_acdet = []
+
 ac_det = {
     'activity_id': ' ',
     'from_date': ' ',
@@ -95,35 +100,71 @@ def activity_details(iter):
   ac_det["self_evaluation"] = st.text_input("What is your self evaluation for this effort ?", key=f"self_eval {iter}")
   ac_det["notes"] = st.text_input("Any notes/comments ?", key=f"notes {iter}")
 
-def main(): 
-    with st.expander("Activities"):
-        activity_table()
-        #st.write(f"List of activities : {aclist}")
-        num_activities = st.number_input("Number of activities" , min_value=1, max_value=100, value=1)
-        for k in range(1, num_activities+1):
-           option = st.selectbox(f"Which activity do you like to report " , aclist, key=f"activity {k}")
-           if option: 
-              st.write(f"You selected : {option}" )
-              #with st.expander("Activity Details"):
-              activity_details(k)
-   
-    submitted = st.button("Submit")
-    
-    if submitted: 
-     #college_sql = "insert into college_info (college_name, district, state, website, head_name, fb_link, yt_link, total_participants, total_strength, dignitaries, date) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
-     #values = (college_name, district, state, website, head_name, fb_link, yt_link, int(total_participants), int(total_strength), dignitaries, date)
-     #st.write(f"Sql {college_sql}")
-     st.write(f"Submitted ")
+def main():
+     global college_id
+     if 'college_id' in st.session_state :
+          college_id = st.session_state.college_id
+     if college_id == 0:
+          st.write("Please enter college details first on Apexsdg page")
+     if college_id is not 0 : 
+         with st.expander("Activities"):
+             activity_table()
+             #st.write(f"List of activities : {aclist}")
+             num_activities = st.number_input("Number of activities" , min_value=1, max_value=100, value=1)
+             k = 0
+             while k != num_activities:
+             #for k in range(0, num_activities+1):
+                option = st.selectbox(f"Which activity do you like to report " , aclist, key=f"activity {k}")
+                # option is the activity to be entered.
+                if option: 
+                   st.write(f"You selected : {option}" )
+                   #with st.expander("Activity Details"):
+                   activity_details(k)
+                   #loop through the inputs given by user
+                   # k, v in ac_det.items():
+                   #    st.write("{k} = {v}")
+                   #Capture the inputs from user, option is the activity name,
+                   #ac_det is the activity detail in the dictionary format
+                   selected_aclist.append(option.rstrip())
+                   sel_acdet.append(ac_det)
+                k += 1
+                   
+        
+         submitted = st.button("Submit")
+         
+         if submitted: 
+          k = 0
+          while k != num_activities:
+               acidsql = "select activity_number from activity_table where activity_name = %s"
+               val = selected_aclist[k]
+               #print(val)
+               data_tuple = (val,)
+               mycursor.execute(acidsql, data_tuple)
+               acid = mycursor.fetchone()
+               an = acid["activity_number"] ## Get activity number from acid tuple
+               if an is not None:
+                   #insert into activity detail table using this an which is activity_id
+                    ac_detsql = """insert into activity_details (college_id, activity_id, from_date, to_date, outcomes, 
+                    planning, material_availability, material_collection, list_and_role_material, aware, collaboration, 
+                    location, checklist, steps, precautions, tools_support, learnings, village_support_new_ideas, 
+                    final_learning, feedback, self_evaluation, notes) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
-     
-     #if id is not None: 
-      # college_id = id['last_insert_id()']
-       #st.write(f"My id is {college_id}")
-       #Tuple is of this form -  {'last_insert_id()': 28}
-       
-
-     mycursor.close()
-     conn.close()
+                    item = sel_acdet[k]
+                                  
+                    datat = (college_id, an,item["from_date"],item["to_date"],item["outcomes"],item["planning"],item["mat_avail"], \
+                             item["mat_collec"],item["role"],item["aware"],item["collab"],item["location"],item["checklist"], \
+                             item["steps"],item["precautions"],item["tools_support"],item["learnings"],item["village_support"],\
+                             item["final_learnings"],item["feedback"],item["self_evaluation"],item["notes"])
+                    
+                    mycursor.execute(ac_detsql, datat)
+               k += 1
+               #st.write(f"Submitted ")
+               st.switch_page("pages/thanks.py")
+            
+          conn.commit()
+          mycursor.close()
+          conn.close()
     #engine.dispose()
 
 if __name__ == "__main__":
